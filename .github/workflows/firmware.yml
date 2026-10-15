@@ -1,0 +1,145 @@
+name: firmware
+
+# Builds JadeOS for the ESP32-S3 N16R8 (and a QEMU variant), tests the C core and the Python side on
+# the MicroPython unix port, boots the QEMU build in Espressif's ESP32-S3 emulator and runs the
+# end-to-end tests against it. Firmware and logs are uploaded as artifacts and also pushed to the
+# `ci-results` branch (so they can be fetched with plain git).
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  MICROPYTHON_VERSION: v1.29.0
+  IDF_IMAGE: espressif/idf:v5.5.2
+
+jobs:
+  host-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: MicroPython source
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq libffi-dev pkg-config
+          git clone --depth 1 -b $MICROPYTHON_VERSION https://github.com/micropython/micropython ../micropython
+          make -C ../micropython/ports/unix submodules
+          git -C ../micropython submodule update --init --depth 1 lib/micropython-lib
+          make -C ../micropython/mpy-cross -j4
+      - name: Tests (C sanitizers, unix port, API, dashboard)
+        run: |
+          pip install playwright==1.48.0 && python -m playwright install --with-deps chromium
+          MPY=$PWD/../micropython tests/run_all.sh 2>&1 | tee host-tests.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: host-tests
+          path: host-tests.log
+
+  build:
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.5.2
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: ["", "QEMU"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: MicroPython source
+        run: |
+          git clone --depth 1 -b $MICROPYTHON_VERSION https://github.com/micropython/micropython /mp
+          # BreezyBox (and LittleFS, which it brings) become dependencies of MicroPython's main component
+          cat >> /mp/ports/esp32/main/idf_component.yml <<'EOF'
+            valdanylchuk/breezybox:
+              version: "1.1.1"
+            joltwallet/littlefs:
+              version: "^1.20"
+          EOF
+          cat /mp/ports/esp32/main/idf_component.yml
+      - name: Build
+        shell: bash
+        run: |
+          . $IDF_PATH/export.sh
+          BOARD_DIR=$GITHUB_WORKSPACE/firmware/board/JADE_S3_N16R8
+          make -C /mp/ports/esp32 submodules BOARD_DIR=$BOARD_DIR
+          make -C /mp/mpy-cross -j4
+          VARIANT_ARG=""
+          [ -n "${{ matrix.variant }}" ] && VARIANT_ARG="BOARD_VARIANT=${{ matrix.variant }}"
+          make -C /mp/ports/esp32 -j4 BOARD_DIR=$BOARD_DIR $VARIANT_ARG \
+              USER_C_MODULES=$GITHUB_WORKSPACE/firmware/modules/micropython.cmake 2>&1 | tee build.log
+          B=$(ls -d /mp/ports/esp32/build-JADE_S3_N16R8*)
+          mkdir -p out
+          SUFFIX=${{ matrix.variant && format('-{0}', matrix.variant) || '' }}
+          cp $B/firmware.bin out/jadeos-esp32s3-n16r8$SUFFIX.bin
+          cp $B/micropython.elf out/jadeos-esp32s3-n16r8$SUFFIX.elf
+          cp $B/sdkconfig out/sdkconfig$SUFFIX
+          python $IDF_PATH/tools/idf_size.py $B/micropython.map > out/size$SUFFIX.txt 2>&1 || true
+          cp build.log out/build$SUFFIX.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: firmware${{ matrix.variant && format('-{0}', matrix.variant) || '' }}
+          path: out/
+
+  qemu:
+    needs: build
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.5.2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: firmware-QEMU
+          path: fw
+      - name: Boot in the ESP32-S3 emulator and test
+        shell: bash
+        run: |
+          python $IDF_PATH/tools/idf_tools.py install qemu-xtensa
+          . $IDF_PATH/export.sh
+          (apt-get update && apt-get install -y libsdl2-2.0-0 libslirp0) >/dev/null 2>&1 || true
+          which qemu-system-xtensa
+          mkdir -p qemu-logs
+          python3 tests/qemu/run_qemu.py --firmware fw/jadeos-esp32s3-n16r8-QEMU.bin --logs qemu-logs 2>&1 | tee qemu-logs/run.log
+          exit ${PIPESTATUS[0]}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qemu-logs
+          path: qemu-logs/
+
+  publish:
+    needs: [host-tests, build, qemu]
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: results
+      - name: Push results to the ci-results branch
+        run: |
+          cd results
+          cat > STATUS.md <<EOF
+          commit: ${{ github.sha }}
+          run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          host-tests: ${{ needs.host-tests.result }}
+          build: ${{ needs.build.result }}
+          qemu: ${{ needs.qemu.result }}
+          EOF
+          git init -q -b ci-results
+          git config user.name "jadeos-ci"
+          git config user.email "jadeos-ci@users.noreply.github.com"
+          git add -A
+          git commit -qm "CI results for ${{ github.sha }}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" ci-results
+      - name: Release (tags)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            results/firmware/*.bin
+            results/firmware-QEMU/*.bin

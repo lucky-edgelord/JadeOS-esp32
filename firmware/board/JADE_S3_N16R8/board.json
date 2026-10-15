@@ -1,0 +1,11 @@
+{
+    "deploy": ["../../../README.md"],
+    "docs": "",
+    "features": ["BLE", "External Flash", "External RAM", "WiFi", "USB-OTG"],
+    "images": [],
+    "mcu": "esp32s3",
+    "product": "JadeOS on ESP32-S3 N16R8",
+    "thumbnail": "",
+    "url": "https://github.com/lucky-edgelord/JadeOS-esp32",
+    "vendor": "JadeOS"
+}

@@ -1,0 +1,8 @@
+# JadeOS partition table for 16 MB flash.
+# "storage" (LittleFS, mounted at /root by BreezyBox) runs to the end of flash, so MicroPython
+# doesn't add its own "vfs" partition.
+# Name,   Type, SubType, Offset,   Size,     Flags
+nvs,      data, nvs,     0x9000,   0x6000,
+phy_init, data, phy,     0xf000,   0x1000,
+factory,  app,  factory, 0x10000,  0x3F0000,
+storage,  data, spiffs,  0x400000, 0xC00000,
