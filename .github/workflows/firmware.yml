@@ -64,6 +64,9 @@ jobs:
       - name: Build
         shell: bash
         run: |
+          mkdir -p out
+          SUFFIX=${{ matrix.variant && format('-{0}', matrix.variant) || '' }}
+          exec > >(tee out/build$SUFFIX.log) 2>&1
           . $IDF_PATH/export.sh
           BOARD_DIR=$GITHUB_WORKSPACE/firmware/board/JADE_S3_N16R8
           make -C /mp/ports/esp32 submodules BOARD_DIR=$BOARD_DIR
@@ -71,15 +74,12 @@ jobs:
           VARIANT_ARG=""
           [ -n "${{ matrix.variant }}" ] && VARIANT_ARG="BOARD_VARIANT=${{ matrix.variant }}"
           make -C /mp/ports/esp32 -j4 BOARD_DIR=$BOARD_DIR $VARIANT_ARG \
-              USER_C_MODULES=$GITHUB_WORKSPACE/firmware/modules/micropython.cmake 2>&1 | tee build.log
+              USER_C_MODULES=$GITHUB_WORKSPACE/firmware/modules/micropython.cmake
           B=$(ls -d /mp/ports/esp32/build-JADE_S3_N16R8*)
-          mkdir -p out
-          SUFFIX=${{ matrix.variant && format('-{0}', matrix.variant) || '' }}
           cp $B/firmware.bin out/jadeos-esp32s3-n16r8$SUFFIX.bin
           cp $B/micropython.elf out/jadeos-esp32s3-n16r8$SUFFIX.elf
           cp $B/sdkconfig out/sdkconfig$SUFFIX
           python $IDF_PATH/tools/idf_size.py $B/micropython.map > out/size$SUFFIX.txt 2>&1 || true
-          cp build.log out/build$SUFFIX.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
