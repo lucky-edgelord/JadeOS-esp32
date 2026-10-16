@@ -65,6 +65,11 @@ class Serial:
                 return
             if not d:
                 return
+            if b"\x1b[6n" in d:   # the BreezyBox terminal asks where the cursor is: answer like a real terminal
+                try:
+                    self.sock.sendall(b"\x1b[24;1R" * d.count(b"\x1b[6n"))
+                except OSError:
+                    pass
             with self.lock:
                 self.buf += d
             self.log.write(d)
@@ -98,6 +103,7 @@ class Serial:
 
 
 def shell(uart0, cmd, timeout=60, until="$ "):
+    time.sleep(1.5)   # let the shell finish its cursor-position handshake before typing
     m = uart0.mark()
     uart0.write(cmd + "\r", slow=True)
     uart0.wait(until, timeout, m + len(cmd))

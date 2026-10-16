@@ -32,7 +32,8 @@ def status():
     try:
         import esp32
         out["internal_free"] = esp32.idf_heap_info(esp32.HEAP_DATA)[0][2] if esp32.idf_heap_info(esp32.HEAP_DATA) else 0
-        out["mcu_temp_c"] = esp32.mcu_temperature()
+        if net_info.get("mode") != "ethernet":   # the emulator has no temperature sensor and the read never returns
+            out["mcu_temp_c"] = esp32.mcu_temperature()
     except (ImportError, AttributeError, OSError):
         pass
     try:

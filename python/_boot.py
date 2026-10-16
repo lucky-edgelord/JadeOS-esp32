@@ -17,6 +17,11 @@ for d in ("/root/lib", "/root/jade", "/root/vault"):
         os.mkdir(d)
     except OSError:
         pass
+# the frozen modules come first: /root/jade is a data directory (config, logs) and must not shadow
+# the frozen "jade" package as a namespace package
+if ".frozen" in sys.path:
+    sys.path.remove(".frozen")
+sys.path.insert(0, ".frozen")
 sys.path.append("/root/lib")
 
 try:
