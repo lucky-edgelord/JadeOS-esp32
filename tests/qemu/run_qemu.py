@@ -179,8 +179,14 @@ def main():
         check(r.returncode == 0, "API tests on the emulated ESP32-S3")
 
         # --- the BreezyBox shell on UART0
-        uart0.write("\r")
-        time.sleep(1)
+        # the emulated shell can take a while to start reading its input: wait until it echoes
+        m = uart0.mark()
+        for _ in range(12):
+            uart0.write("echo shell-ready\r", slow=True)
+            if uart0.wait("shell-ready\r\nshell-ready", 20, m) or uart0.since(m).count("shell-ready") >= 2:
+                break
+        check("shell-ready" in uart0.since(m), "the BreezyBox shell answers on UART0")
+        time.sleep(2)
         out = shell(uart0, "ls /root/vault")
         check("Welcome.md" in out and "Projects" in out, "shell ls sees notes Python wrote: " + out[-300:])
         out = shell(uart0, "cat /root/vault/Projects/Garden.md")
