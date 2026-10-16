@@ -33,6 +33,7 @@ jobs:
           git -C ../micropython submodule update --init --depth 1 lib/micropython-lib
           make -C ../micropython/mpy-cross -j4
       - name: Tests (C sanitizers, unix port, API, dashboard)
+        shell: bash
         run: |
           pip install playwright==1.48.0 && python -m playwright install --with-deps chromium
           MPY=$PWD/../micropython tests/run_all.sh 2>&1 | tee host-tests.log

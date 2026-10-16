@@ -432,7 +432,7 @@ static mp_obj_t listdir_next(mp_obj_t self_in) {
         }
         #endif
         if (!type) {
-            char p[JV_PATH_MAX + 96 + 64];
+            char p[JV_PATH_MAX + 96 + 260];
             struct stat st;
             snprintf(p, sizeof(p), "%s/%s", self->dirpath, fn);
             if (stat_path(p, &st) == 0) {
