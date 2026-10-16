@@ -229,17 +229,22 @@ typedef struct {
     char low[JIDX_LINE_MAX + 1];
 } search_t;
 
+// Total order (directory listing order differs between file systems): higher score first, then path.
+static int hit_better(int score, const char *path, const jidx_hit_t *o) {
+    return score > o->score || (score == o->score && strcmp(path, o->path) < 0);
+}
+
 static void add_hit(search_t *s, const char *path, int score, int line, uint16_t mask, const char *snip, size_t snip_len) {
     int pos = s->nhits;
     if (pos == s->max_hits) {
-        if (score <= s->hits[pos - 1].score) {
+        if (!hit_better(score, path, &s->hits[pos - 1])) {
             return;
         }
         pos--;  // drop the worst
     } else {
         s->nhits++;
     }
-    while (pos > 0 && s->hits[pos - 1].score < score) {
+    while (pos > 0 && hit_better(score, path, &s->hits[pos - 1])) {
         s->hits[pos] = s->hits[pos - 1];
         pos--;
     }

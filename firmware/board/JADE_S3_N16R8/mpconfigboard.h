@@ -3,6 +3,9 @@
 #endif
 #define MICROPY_HW_MCU_NAME                 "ESP32-S3"
 
+// No Bluetooth: it is not needed and its NimBLE headers are not in the sdkconfig.
+#define MICROPY_PY_BLUETOOTH               (0)
+
 // Start BreezyBox and the shell bridge before MicroPython (see jade_board.c).
 #define MICROPY_BOARD_STARTUP               jade_board_startup
 void jade_board_startup(void);
