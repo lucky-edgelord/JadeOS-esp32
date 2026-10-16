@@ -296,6 +296,8 @@ static const mp_rom_map_elem_t jadecore_globals_table[] = {
     { MP_ROM_QSTR(MP_QSTR_platform), MP_ROM_QSTR(MP_QSTR_host) },
     #endif
 };
+// (the QSTR scan preprocesses without our #ifdef, so make sure both names are collected)
+static const qstr jc_platform_qstrs[] __attribute__((unused)) = { MP_QSTR_esp32, MP_QSTR_host };
 static MP_DEFINE_CONST_DICT(jadecore_globals, jadecore_globals_table);
 
 const mp_obj_module_t jadecore_module = {
