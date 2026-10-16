@@ -88,7 +88,7 @@ jobs:
           [ -n "${{ matrix.variant }}" ] && VARIANT_ARG="BOARD_VARIANT=${{ matrix.variant }}"
           make -C /mp/ports/esp32 -j4 BOARD_DIR=$BOARD_DIR $VARIANT_ARG \
               USER_C_MODULES=$GITHUB_WORKSPACE/firmware/modules/micropython.cmake
-          B=$(ls -d /mp/ports/esp32/build-JADE_S3_N16R8*)
+          B=/mp/ports/esp32/build-JADE_S3_N16R8${{ matrix.variant && format('-{0}', matrix.variant) || '' }}
           cp $B/firmware.bin out/jadeos-esp32s3-n16r8$SUFFIX.bin
           cp $B/micropython.elf out/jadeos-esp32s3-n16r8$SUFFIX.elf
           cp $B/sdkconfig out/sdkconfig$SUFFIX
