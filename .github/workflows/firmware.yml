@@ -76,7 +76,7 @@ jobs:
           # BreezyBox's cp.c/mv.c trip -Werror=format-truncation on this toolchain: build a local copy of the
           # component with that one diagnostic not fatal (override_path keeps the component's own dependencies)
           mkdir -p /mp/local && cp -r /mp/ports/esp32/managed_components/valdanylchuk__breezybox /mp/local/breezybox
-          echo 'target_compile_options(${COMPONENT_LIB} PRIVATE -Wno-error=format-truncation)' >> /mp/local/breezybox/CMakeLists.txt
+          printf '\ntarget_compile_options(${COMPONENT_LIB} PRIVATE -Wno-error=format-truncation)\n' >> /mp/local/breezybox/CMakeLists.txt
           python3 - <<'PY'
           p = "/mp/ports/esp32/main/idf_component.yml"
           s = open(p).read().replace('valdanylchuk/breezybox:\n    version: "1.1.1"', 'valdanylchuk/breezybox:\n    override_path: "/mp/local/breezybox"')
