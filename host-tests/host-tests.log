@@ -1,0 +1,54 @@
+=== indexer (ASan+UBSan)
+28 passed, 0 failed
+--- indexer (ASan+UBSan): ok
+=== bridge (TSan)
+314 passed, 0 failed (served 310)
+--- bridge (TSan): ok
+=== bridge (ASan+UBSan)
+314 passed, 0 failed (served 310)
+--- bridge (ASan+UBSan): ok
+=== unix port build
+/home/runner/work/JadeOS-esp32/JadeOS-esp32/firmware/modules/jadecore/jade_vfs.c: In function ‘listdir_next’:
+/home/runner/work/JadeOS-esp32/JadeOS-esp32/firmware/modules/jadecore/jade_vfs.c:437:40: error: ‘%s’ directive output may be truncated writing up to 255 bytes into a region of size between 64 and 415 [-Werror=format-truncation=]
+  437 |             snprintf(p, sizeof(p), "%s/%s", self->dirpath, fn);
+      |                                        ^~
+/home/runner/work/JadeOS-esp32/JadeOS-esp32/firmware/modules/jadecore/jade_vfs.c:437:13: note: ‘snprintf’ output between 2 and 608 bytes into a destination of size 416
+  437 |             snprintf(p, sizeof(p), "%s/%s", self->dirpath, fn);
+      |             ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+cc1: all warnings being treated as errors
+make: *** [../../py/mkrules.mk:113: build-jade/jadecore/jade_vfs.o] Error 1
+make: *** Waiting for unfinished jobs....
+mkdir -p build-jade/lib/mbedtls_errors/
+--- unix port build: FAILED
+=== jadecore in MicroPython
+tests/run_all.sh: line 14: /home/runner/work/JadeOS-esp32/JadeOS-esp32/../micropython/ports/unix/build-jade/micropython-jade: No such file or directory
+--- jadecore in MicroPython: FAILED
+=== HTTP API end to end
+Traceback (most recent call last):
+  File "/home/runner/work/JadeOS-esp32/JadeOS-esp32/tests/test_api.py", line 277, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/runner/work/JadeOS-esp32/JadeOS-esp32/tests/test_api.py", line 254, in main
+    procs.append(subprocess.Popen([MP, os.path.join(ROOT, "tests/unix/device.py"), data, str(a.port),
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "/usr/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/JadeOS-esp32/JadeOS-esp32/../micropython/ports/unix/build-jade/micropython-jade'
+--- HTTP API end to end: FAILED
+=== dashboard (headless Chromium)
+Traceback (most recent call last):
+  File "/home/runner/work/JadeOS-esp32/JadeOS-esp32/tests/test_dashboard.py", line 269, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/runner/work/JadeOS-esp32/JadeOS-esp32/tests/test_dashboard.py", line 52, in main
+    procs.append(subprocess.Popen([test_api.MP, os.path.join(ROOT, "tests/unix/device.py"), data, str(dev_port),
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/subprocess.py", line 1026, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+  File "/usr/lib/python3.12/subprocess.py", line 1955, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+FileNotFoundError: [Errno 2] No such file or directory: '/home/runner/work/JadeOS-esp32/JadeOS-esp32/../micropython/ports/unix/build-jade/micropython-jade'
+--- dashboard (headless Chromium): FAILED
+=== 4 suite(s) failed
