@@ -22,6 +22,7 @@ env:
 jobs:
   host-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - name: MicroPython source
@@ -43,6 +44,7 @@ jobs:
 
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     container: espressif/idf:v5.5.2
     strategy:
       fail-fast: false
@@ -89,6 +91,7 @@ jobs:
   qemu:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     container: espressif/idf:v5.5.2
     steps:
       - uses: actions/checkout@v4

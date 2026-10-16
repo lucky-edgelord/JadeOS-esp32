@@ -20,9 +20,9 @@ run "bridge (TSan)" sh -c "gcc -std=c11 -D_DEFAULT_SOURCE -Wall -Wextra -Werror 
 run "bridge (ASan+UBSan)" sh -c "gcc -std=c11 -D_DEFAULT_SOURCE -Wall -Wextra -Werror -g -O1 -fsanitize=address,undefined -fno-sanitize-recover=all tests/c/test_bridge.c $J/jade_bridge.c -o $OUT/br2 -lpthread && $OUT/br2"
 run "unix port build" tests/unix/build.sh
 run "jadecore in MicroPython" "$MICROPYTHON_JADE" tests/unix/test_jadecore.py "$OUT/jv"
-run "HTTP API end to end" python3 tests/test_api.py
+run "HTTP API end to end" timeout 600 python3 tests/test_api.py
 if [ -f tests/test_dashboard.py ]; then
-    run "dashboard (headless Chromium)" python3 tests/test_dashboard.py
+    run "dashboard (headless Chromium)" timeout 600 python3 tests/test_dashboard.py
 fi
 rm -rf "$OUT"
 echo "=== $fails suite(s) failed"
