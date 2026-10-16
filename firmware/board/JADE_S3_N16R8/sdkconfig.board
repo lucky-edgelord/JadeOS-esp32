@@ -19,3 +19,7 @@ CONFIG_LITTLEFS_SPIFFS_COMPAT=n
 # sockets for the HTTP server plus TLS to the model API
 CONFIG_LWIP_MAX_SOCKETS=16
 CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=4096
+
+# BreezyBox (eget, httpd) and the cortex client verify TLS with the bundled root certificates
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_FULL=y
