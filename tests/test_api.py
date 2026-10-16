@@ -6,6 +6,7 @@
 """
 import argparse
 import json
+import socket
 import os
 import shutil
 import subprocess
@@ -79,6 +80,12 @@ def llm_requests(llm_port):
 
 
 def llm_reset(llm_port):
+    for _ in range(100):      # the fake model may still be starting (slow CI machines)
+        try:
+            socket.create_connection(("127.0.0.1", llm_port), timeout=1).close()
+            break
+        except OSError:
+            time.sleep(0.2)
     urllib.request.urlopen(urllib.request.Request("http://127.0.0.1:%d/_reset" % llm_port, data=b"{}", method="POST")).read()
 
 

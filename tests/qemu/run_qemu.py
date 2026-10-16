@@ -117,8 +117,8 @@ def main():
     work = tempfile.mkdtemp(prefix="jade-qemu-")
     flash = os.path.join(work, "flash.bin")
     shutil.copy(a.firmware, flash)
-    with open(flash, "r+b") as f:
-        f.truncate(16 * 1024 * 1024)
+    with open(flash, "ab") as f:      # erased flash reads 0xFF (zeros would corrupt LittleFS's format)
+        f.write(b"\xff" * (16 * 1024 * 1024 - os.path.getsize(flash)))
 
     llm = subprocess.Popen([sys.executable, os.path.join(ROOT, "tools/fake_llm.py"), "18080"], stdout=subprocess.DEVNULL)
     qemu_cmd = [a.qemu, "-nographic", "-machine", "esp32s3", "-m", "8M",
