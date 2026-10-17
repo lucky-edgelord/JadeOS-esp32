@@ -1,8 +1,9 @@
-# A tiny log: printed, kept in RAM for the dashboard, and appended to /root/jade/logs/jade.log
+# A tiny log: printed, kept in RAM for the dashboard, and appended to /jade/logs/jade.log
 # (rotated to jade.log.1 at 32 KB).
-import os, time
+import time
+from jade import fs
 
-DIR = "/root/jade/logs"
+DIR = fs.HOME + "/logs"
 PATH = DIR + "/jade.log"
 MAX = 32 * 1024
 _recent = []
@@ -21,11 +22,11 @@ def log(*parts):
         del _recent[0]
     try:
         try:
-            if os.stat(PATH)[6] > MAX:
-                os.rename(PATH, PATH + ".1")
+            if fs.stat(PATH)[6] > MAX:
+                fs.rename(PATH, PATH + ".1")
         except OSError:
-            pass
-        with open(PATH, "a") as f:
+            fs.makedirs(DIR)
+        with fs.open(PATH, "a") as f:
             f.write(line + "\n")
     except OSError:
         pass

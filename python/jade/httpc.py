@@ -1,5 +1,6 @@
 # A small asyncio HTTP/1.1 client: enough for JSON APIs (POST/GET, chunked or sized bodies, TLS).
 import asyncio, json
+from jade import fs
 
 
 class HTTPError(Exception):
@@ -21,13 +22,13 @@ def split_url(url):
 _ssl_ctx = None
 
 
-def ssl_context(verify=False, cafile="/root/jade/ca.pem"):
+def ssl_context(verify=False, cafile="/jade/ca.pem"):
     global _ssl_ctx
     if _ssl_ctx is None:
         import ssl
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
         if verify:
-            with open(cafile, "rb") as f:
+            with fs.open(cafile, "rb") as f:
                 ctx.load_verify_locations(cadata=f.read())
             ctx.verify_mode = ssl.CERT_REQUIRED
         else:

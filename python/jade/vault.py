@@ -1,7 +1,6 @@
-# The vault: Markdown notes under config "vault" (default /root/vault).
+# The vault: Markdown notes under config "vault" (default /vault).
 # Every path the API or a tool gives is relative to the vault and is checked so it can't escape it.
-import os, jadecore
-from jade import config
+from jade import config, fs, idx
 
 
 class VaultError(Exception):
@@ -9,11 +8,11 @@ class VaultError(Exception):
 
 
 def root():
-    return config.load()["vault"].rstrip("/") or "/root/vault"
+    return config.load()["vault"].rstrip("/") or "/vault"
 
 
 def ensure():
-    config.makedirs(root())
+    fs.makedirs(root())
     if not _listdir(root()):
         write("Welcome.md", WELCOME)
 
@@ -43,21 +42,21 @@ def clean(rel):
 
 def _listdir(path):
     try:
-        return list(os.ilistdir(path))
+        return list(fs.ilistdir(path))
     except OSError:
         return []
 
 
 def _isdir(path):
     try:
-        return os.stat(path)[0] & 0x4000 != 0
+        return fs.stat(path)[0] & 0x4000 != 0
     except OSError:
         return False
 
 
 def exists(rel):
     try:
-        os.stat(clean(rel)[1])
+        fs.stat(clean(rel)[1])
         return True
     except OSError:
         return False
@@ -79,7 +78,7 @@ def tree(rel="", depth=6):
             node["children"] = tree(p, depth - 1) if depth > 1 else []
         else:
             try:
-                size = os.stat(path + "/" + name)[6]
+                size = fs.stat(path + "/" + name)[6]
             except OSError:
                 size = 0
             node = {"name": name, "path": p, "dir": False, "size": size}
@@ -108,7 +107,7 @@ def files(rel="", ext=".md"):
 def read(rel, limit=None):
     r, path = clean(rel)
     try:
-        with open(path) as f:
+        with fs.open(path) as f:
             return f.read(limit) if limit else f.read()
     except OSError:
         raise VaultError("no such note: " + rel)
@@ -117,7 +116,7 @@ def read(rel, limit=None):
 def stat(rel):
     r, path = clean(rel)
     try:
-        st = os.stat(path)
+        st = fs.stat(path)
     except OSError:
         raise VaultError("no such note: " + rel)
     return {"path": r, "size": st[6], "mtime": st[8], "dir": st[0] & 0x4000 != 0}
@@ -128,21 +127,21 @@ def write(rel, text, append=False):
     if not r or _isdir(path):
         raise VaultError("not a note: " + rel)
     parent = path.rsplit("/", 1)[0]
-    config.makedirs(parent)
+    fs.makedirs(parent)
     if append:
-        with open(path, "a") as f:
+        with fs.open(path, "a") as f:
             f.write(text)
     else:
         tmp = parent + "/.jade-tmp"     # write then rename, so a reset never leaves half a note
-        with open(tmp, "w") as f:
+        with fs.open(tmp, "w") as f:
             f.write(text)
-        os.rename(tmp, path)
+        fs.rename(tmp, path)
     return stat(r)
 
 
 def mkdir(rel):
     r, path = clean(rel)
-    config.makedirs(path)
+    fs.makedirs(path)
     return stat(r)
 
 
@@ -153,10 +152,10 @@ def delete(rel):
     if _isdir(path):
         if _listdir(path):
             raise VaultError("folder not empty: " + rel)
-        os.rmdir(path)
+        fs.rmdir(path)
     else:
         try:
-            os.remove(path)
+            fs.remove(path)
         except OSError:
             raise VaultError("no such note: " + rel)
 
@@ -167,18 +166,28 @@ def move(src, dst):
     if not a or not b:
         raise VaultError("bad move")
     try:
-        os.stat(pa)
+        fs.stat(pa)
     except OSError:
         raise VaultError("no such note: " + src)
-    config.makedirs(pb.rsplit("/", 1)[0])
-    os.rename(pa, pb)
+    fs.makedirs(pb.rsplit("/", 1)[0])
+    fs.rename(pa, pb)
     return stat(b)
 
 
 def search(query, k=8, snip=160):
     base = root() + "/"
     out = []
-    for path, score, line, snippet in jadecore.search(root(), query, k, snip):
+    for path, score, line, snippet in idx.search(root(), query, k, snip):
+        out.append({"path": path[len(base):] if path.startswith(base) else path,
+                    "score": score, "line": line, "snippet": snippet})
+    return out
+
+
+async def asearch(query, k=8, snip=160):
+    # the same as search(), but gives the web server the CPU back between files
+    base = root() + "/"
+    out = []
+    for path, score, line, snippet in await idx.asearch(root(), query, k, snip):
         out.append({"path": path[len(base):] if path.startswith(base) else path,
                     "score": score, "line": line, "snippet": snippet})
     return out
@@ -190,7 +199,7 @@ KINDS = {1: "headings", 2: "links", 4: "tags", 8: "tasks", 16: "meta"}
 def outline(rel):
     r, path = clean(rel)
     try:
-        items = jadecore.scan(path)
+        items = idx.scan(path)
     except OSError:
         raise VaultError("no such note: " + rel)
     out = {"path": r, "headings": [], "links": [], "tags": [], "tasks": [], "meta": {}}
@@ -236,7 +245,7 @@ def backlinks(rel):
         if p == r:
             continue
         try:
-            items = jadecore.scan(clean(p)[1], 2)
+            items = idx.scan(clean(p)[1], 2)
         except OSError:
             continue
         for _, a, b, n, line in items:
@@ -251,4 +260,4 @@ def backlinks(rel):
 
 def plain(rel, limit=2000):
     # a note as plain text for a model prompt
-    return jadecore.strip(read(rel, limit))
+    return idx.strip(read(rel, limit))

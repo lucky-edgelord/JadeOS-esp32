@@ -6,10 +6,10 @@
 #   Act:    requested tools run on the device; their output goes back to the model; repeat up to
 #           agent.max_steps times.
 #
-# Conversation history stays in RAM (and /root/jade/history.json) and is trimmed by the cortex's
+# Conversation history stays in RAM (and /jade/history.json) and is trimmed by the cortex's
 # token budget.
 import json, time
-from jade import config, vault, tools
+from jade import config, fs, vault, tools
 from jade.cortex import cortex, BudgetError
 from jade.httpc import HTTPError
 from jade.log import log
@@ -30,7 +30,7 @@ class Agent:
 
     def load(self):
         try:
-            with open(HISTORY) as f:
+            with fs.open(HISTORY) as f:
                 self.history = json.load(f)
         except (OSError, ValueError):
             self.history = []
@@ -40,7 +40,7 @@ class Agent:
         self.history = self.history[-n:]
         try:
             config.makedirs(config.HOME)
-            with open(HISTORY, "w") as f:
+            with fs.open(HISTORY, "w") as f:
                 json.dump(self.history, f)
         except OSError:
             pass
@@ -49,11 +49,11 @@ class Agent:
         self.history = []
         self.save()
 
-    def context(self, prompt):
+    async def context(self, prompt):
         # Search step: vault notes related to the prompt, as plain text
         k = config.load()["agent"]["context_hits"]
         try:
-            hits = vault.search(prompt, k, 200)
+            hits = await vault.asearch(prompt, k, 200)
         except OSError:
             hits = []
         if not hits:
@@ -86,7 +86,7 @@ class Agent:
         t0 = time.ticks_ms()
         steps = []
         try:
-            ctx, notes = self.context(prompt)
+            ctx, notes = await self.context(prompt)
             steps.append(emit("search", notes=notes))
             system = (cfg.get("persona") or PERSONA)
             t = time.localtime()

@@ -1,8 +1,8 @@
 # Jade's tools. Each is a plain (or async) function with a JSON-schema description, registered with
 # @tool. The agent offers them to the model as OpenAI-style function tools; the API, the dashboard and
 # the shell (`jade tool <name> {json}`) can run them directly.
-import json, time, gc, os, jadecore
-from jade import vault, config
+import json, time, gc
+from jade import vault, config, shell
 
 REGISTRY = {}
 MAX_OUT = 3000   # characters of tool output handed back to the model
@@ -89,8 +89,8 @@ async def run(name, args):
 @tool("search_vault", "Full-text search of the user's Markdown notes. Returns matching notes with the best line.",
       {"query": {"type": "string", "description": "words or #tags to look for"},
        "k": {"type": "integer", "description": "how many notes (default 5)"}}, ["query"])
-def search_vault(query, k=5):
-    hits = vault.search(query, min(max(k, 1), 10))
+async def search_vault(query, k=5):
+    hits = await vault.asearch(query, min(max(k, 1), 10))
     if not hits:
         return "no notes match " + repr(query)
     return "\n".join("%s (line %d): %s" % (h["path"], h["line"], h["snippet"]) for h in hits)
@@ -151,13 +151,13 @@ def remember(fact):
     return "remembered"
 
 
-@tool("run_shell", "Run one allowed BreezyBox shell command on the device (ls, cat, df, free, date, ...).",
+@tool("run_shell", "Run one allowed JadeOS shell command on the device (ls, cat, df, free, date, ...).",
       {"command": {"type": "string"}}, ["command"])
-def run_shell(command):
+async def run_shell(command):
     ok, why = shell_allowed(command)
     if not ok:
         raise ToolError(why)
-    st, out = jadecore.shell(command)
+    st, out = await shell.run(command, shell.Shell(allow=config.load()["shell"]["allow"]))
     return ("exit %d\n" % st if st else "") + (out or "(no output)")
 
 

@@ -17,7 +17,7 @@ import urllib.error
 import urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MP = os.environ.get("MICROPYTHON_JADE", "/home/claude/src/micropython/ports/unix/build-jade/micropython-jade")
+MP = os.environ.get("MICROPYTHON", "/home/claude/src/micropython/ports/unix/build-standard/micropython")
 
 passed = failed = 0
 
@@ -170,7 +170,7 @@ def run(c, llm_port, host_shell):
     # --- shell whitelist
     st, _, b = c.post("/api/system/shell", {"cmd": "echo hello"})
     check(st == 200 and b["status"] == 0 and "hello" in b["output"], "shell echo: %s" % b)
-    for bad in ("reboot", "echo hi; rm -rf /", "cat /root/jade/config.json | wc", "rm /root/jade/config.json", "echo $(id)", "ls > /root/x"):
+    for bad in ("reboot", "echo hi; rm -rf /", "cat /jade/config.json | wc", "rm /jade/config.json", "echo $(id)", "ls > /x"):
         st, _, b = c.post("/api/system/shell", {"cmd": bad})
         check(st == 403, "shell refuses %r → %s %s" % (bad, st, b))
 
@@ -221,22 +221,21 @@ def run(c, llm_port, host_shell):
     st, _, hist = c.get("/api/agent/history")
     check(hist["history"] == [], "history cleared")
 
-    # --- shell bridge (the unix device plays the shell side through /api/_test/bridge)
+    # --- the Deck is served by the device itself, public, gzip as stored
+    st, h, raw = c.req("GET", "/", token=False, raw=True)
+    check(st == 404 and b"No Deck" in raw, "no Deck yet: %s" % st)
     if host_shell:
-        st, _, b = c.post("/api/_test/bridge", {"line": "search tomatoes"})
-        check(b["status"] == 0 and "Projects/Garden.md:5" in b["reply"], "bridge search: %s" % b)
-        st, _, b = c.post("/api/_test/bridge", {"line": "ask what about tomatoes?"})
-        check(b["status"] == 0 and b["reply"].startswith("You asked: what about tomatoes?") and "(notes: Projects/Garden.md" in b["reply"], "bridge ask: %s" % b)
-        st, _, b = c.post("/api/_test/bridge", {"line": "py 6*7"})
-        check(b == {"status": 0, "reply": "42"}, "bridge py: %s" % b)
-        st, _, b = c.post("/api/_test/bridge", {"line": "py 1/0"})
-        check(b["status"] == 1 and "ZeroDivisionError" in b["reply"], "bridge py error: %s" % b)
-        st, _, b = c.post("/api/_test/bridge", {"line": "tool current_time"})
-        check(b["status"] == 0 and b["reply"][:2] == "20", "bridge tool: %s" % b)
-        st, _, b = c.post("/api/_test/bridge", {"line": "frobnicate"})
-        check(b["status"] == 2 and "unknown jade command" in b["reply"], "bridge unknown: %s" % b)
-        st, _, b = c.post("/api/_test/bridge", {"line": "status"})
-        check(b["status"] == 0 and json.loads(b["reply"])["name"] == "JadeOS", "bridge status")
+        import gzip
+        html = b"<!doctype html><title>Deck</title><p>hello deck</p>" * 50
+        gz = gzip.compress(html)
+        with open(os.path.join(os.environ["JADEOS_ROOT"], "www", "index.html.gz"), "wb") as f:
+            f.write(gz)
+        for path in ("/", "/deck"):
+            st, h, raw = c.req("GET", path, token=False, raw=True)
+            check(st == 200 and h.get("Content-Encoding") == "gzip" and "text/html" in h.get("Content-Type", "") and raw == gz,
+                  "Deck at %s: %s %s" % (path, st, h))
+        st, h, raw = c.req("GET", "/", token=False, raw=True, headers={"Accept-Encoding": "gzip"})
+        check(st == 200 and gzip.decompress(raw) == html, "Deck decompresses")
 
     # --- logs
     st, _, b = c.get("/api/system/logs?n=200")
@@ -258,8 +257,10 @@ def main():
             procs.append(subprocess.Popen([sys.executable, os.path.join(ROOT, "tools/fake_llm.py"), str(a.llm_port)], stdout=subprocess.DEVNULL))
             data = tempfile.mkdtemp(prefix="jade-dev-")
             log = open(os.path.join(data, "device.log"), "w")
-            procs.append(subprocess.Popen([MP, os.path.join(ROOT, "tests/unix/device.py"), data, str(a.port),
-                                           "http://127.0.0.1:%d/v1/chat/completions" % a.llm_port], stdout=log, stderr=subprocess.STDOUT))
+            env = dict(os.environ, JADEOS_ROOT=data, MICROPYPATH=".frozen:%s/python:%s/python/lib" % (ROOT, ROOT))
+            os.environ["JADEOS_ROOT"] = data
+            procs.append(subprocess.Popen([MP, os.path.join(ROOT, "tests/unix/device.py"), str(a.port),
+                                           "http://127.0.0.1:%d/v1/chat/completions" % a.llm_port], stdout=log, stderr=subprocess.STDOUT, env=env))
             a.url = "http://127.0.0.1:%d" % a.port
         if not wait_up(a.url, 60):
             print("device did not come up")
