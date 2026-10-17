@@ -1,14 +1,15 @@
-# Settings in /root/jade/config.json. Missing keys fall back to DEFAULTS, so old files keep working.
+# Settings in /jade/config.json. Missing keys fall back to DEFAULTS, so old files keep working.
 import json, os
+from jade import fs
 
-HOME = "/root/jade"
+HOME = fs.HOME
 PATH = HOME + "/config.json"
 
 DEFAULTS = {
     "hostname": "jade",
     "wifi": {"ssid": "", "password": "", "ap_password": "jadeos-setup"},
     "api": {"port": 80, "token": "", "origins": "*"},
-    "vault": "/root/vault",
+    "vault": fs.VAULT,
     "cortex": {
         "url": "https://api.groq.com/openai/v1/chat/completions",
         "model": "llama-3.3-70b-versatile",
@@ -18,7 +19,7 @@ DEFAULTS = {
         "daily_tokens": 200000,     # stop calling the model after this many tokens a day
         "temperature": 0.4,
         "timeout": 60,
-        "tls_verify": False,        # True needs /root/jade/ca.pem
+        "tls_verify": False,        # True needs /jade/ca.pem
     },
     "agent": {"max_steps": 5, "context_hits": 4, "history": 12, "persona": ""},
     "shell": {
@@ -43,14 +44,7 @@ def _merge(base, over):
     return out
 
 
-def makedirs(path):
-    cur = ""
-    for part in path.strip("/").split("/"):
-        cur += "/" + part
-        try:
-            os.mkdir(cur)
-        except OSError:
-            pass
+makedirs = fs.makedirs
 
 
 def _token():
@@ -66,7 +60,7 @@ def load(reload=False):
         return _cfg
     data = {}
     try:
-        with open(PATH) as f:
+        with fs.open(PATH) as f:
             data = json.load(f)
     except (OSError, ValueError):
         pass
@@ -80,9 +74,9 @@ def load(reload=False):
 def save():
     makedirs(HOME)
     tmp = PATH + ".tmp"
-    with open(tmp, "w") as f:
+    with fs.open(tmp, "w") as f:
         json.dump(_cfg, f)
-    os.rename(tmp, PATH)
+    fs.rename(tmp, PATH)
 
 
 def public():

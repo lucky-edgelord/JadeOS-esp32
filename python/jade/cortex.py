@@ -6,7 +6,7 @@
 # Token counts before a call are estimates (about 4 characters per token); usage after a call is
 # what the API reports.
 import json, time, asyncio
-from jade import config, httpc
+from jade import config, fs, httpc
 from jade.log import log
 
 USAGE = config.HOME + "/usage.json"
@@ -34,7 +34,7 @@ class Usage:
         self.completion = 0
         self.calls = 0
         try:
-            with open(USAGE) as f:
+            with fs.open(USAGE) as f:
                 d = json.load(f)
             if d.get("day") == self.day:
                 self.prompt, self.completion, self.calls = d["prompt"], d["completion"], d["calls"]
@@ -57,7 +57,7 @@ class Usage:
         self.calls += 1
         try:
             config.makedirs(config.HOME)
-            with open(USAGE, "w") as f:
+            with fs.open(USAGE, "w") as f:
                 json.dump(self.as_dict(), f)
         except OSError:
             pass

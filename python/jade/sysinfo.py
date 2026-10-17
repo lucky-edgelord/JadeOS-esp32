@@ -1,7 +1,7 @@
 # Device status for the dashboard and the device_status tool.
 import gc, os, sys, time
 import jade
-from jade import config
+from jade import config, fs
 
 BOOT = time.ticks_ms()
 net_info = {"mode": "none", "ip": "", "ssid": "", "hostname": ""}
@@ -24,7 +24,7 @@ def status():
         "net": net_info,
     }
     try:
-        s = os.statvfs("/root")
+        s = fs.statvfs("/")
         out["storage_total"] = s[0] * s[2]
         out["storage_free"] = s[0] * s[3]
     except OSError:

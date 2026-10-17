@@ -190,7 +190,7 @@ button.chip:hover{border-color:var(--yl);color:var(--yl)}
 
 /* shell */
 .term{flex:1;min-height:0;overflow:auto;background:#020504;padding:12px 14px;font-family:var(--f-mono);font-size:12.5px;line-height:1.55}
-.term .cmd{color:var(--yl)} .term .cmd::before{content:"jade:/root$ ";color:var(--cy)}
+.term .cmd{color:var(--yl)} .term .cmd::before{content:"jade:/$ ";color:var(--cy)}
 .term .out{white-space:pre-wrap;word-break:break-word;color:#cde3da;margin-bottom:8px}
 .term .out.err{color:var(--rd)}
 .term-in{flex:none;display:flex;gap:8px;padding:8px 10px;border-top:1px solid var(--line);align-items:center;background:rgba(4,8,7,.92)}
@@ -323,7 +323,7 @@ button.chip:hover{border-color:var(--yl);color:var(--yl)}
               <button class="btn btn-red" id="vDelete" disabled>Delete</button>
             </div>
             <div class="note-body" id="noteBody">
-              <div class="note-view md" id="noteView"><div class="empty">Pick a note on the left, or search.<br>Notes live on the ESP32's flash in <span class="mono">/root/vault</span>.</div></div>
+              <div class="note-view md" id="noteView"><div class="empty">Pick a note on the left, or search.<br>Notes live on the ESP32's flash in <span class="mono">/vault</span>.</div></div>
               <textarea class="note-edit" id="noteEdit" hidden spellcheck="false" aria-label="Note text"></textarea>
               <aside class="outline" id="outline"></aside>
             </div>
@@ -335,7 +335,7 @@ button.chip:hover{border-color:var(--yl);color:var(--yl)}
       <div class="panel" data-panel="shell">
         <div class="quick" id="quick"></div>
         <div class="term" id="term"><div class="hint">BreezyBox shell on the device. Only the commands allowed in the device's config run from here; chaining, pipes and redirection are refused. The full shell is on the board's UART port.</div></div>
-        <form class="term-in" id="termForm"><span class="prompt">jade:/root$</span><input id="termIn" autocomplete="off" spellcheck="false" aria-label="Shell command"><button class="btn btn-ghost" type="submit">Run</button></form>
+        <form class="term-in" id="termForm"><span class="prompt">jade:/$</span><input id="termIn" autocomplete="off" spellcheck="false" aria-label="Shell command"><button class="btn btn-ghost" type="submit">Run</button></form>
       </div>
 
       <!-- SYSTEM -->
@@ -392,8 +392,8 @@ button.chip:hover{border-color:var(--yl);color:var(--yl)}
   <form class="sheet cut" id="connectForm">
     <h2>Connect to your Jade</h2>
     <label><span class="lbl">Device address</span><input class="field" id="cUrl" placeholder="http://jade.local" autocomplete="url"></label>
-    <label><span class="lbl">API token</span><input class="field" id="cToken" placeholder="from /root/jade/config.json or the boot log" autocomplete="off"></label>
-    <div class="hint">The token is in <span class="mono">/root/jade/config.json</span> (shell: <span class="mono">cat /root/jade/config.json</span>) and stays in this browser only.</div>
+    <label><span class="lbl">API token</span><input class="field" id="cToken" placeholder="from /jade/config.json or the boot log" autocomplete="off"></label>
+    <div class="hint">The token is in <span class="mono">/jade/config.json</span> (shell: <span class="mono">cat /jade/config.json</span>) and stays in this browser only.</div>
     <div class="note-box" id="mixedNote" hidden>
       <b>This page is HTTPS, your Jade speaks HTTP.</b> Chrome and Edge (142+) will ask to let this site reach devices on your local network: allow it. Use the device's IP (like <span class="mono">http://192.168.1.50</span>) or <span class="mono">http://jade.local</span>.
       In Firefox or Safari, save this page (Ctrl/Cmd+S) and open the saved file instead.
@@ -493,7 +493,8 @@ async function connect(quiet = false) {
 function openConnect(msg) {
   $('#cUrl').value = Dev.url || 'http://jade.local';
   $('#cToken').value = Dev.token || '';
-  $('#mixedNote').hidden = location.protocol !== 'https:';
+  $('#mixedNote').hidden = location.protocol !== 'https:' || Dev.here;
+  $('#cUrl').readOnly = !!Dev.here;
   $('#cMsg').textContent = msg || '';
   $('#connect').hidden = false;
   setTimeout(() => (Dev.token ? $('#cUrl') : $('#cToken')).focus(), 30);
@@ -855,7 +856,7 @@ $('#vSearch').addEventListener('keydown', e => { if (e.key === 'Enter') { clearT
 const hist = store.get('shellHist', []); let hIdx = hist.length;
 function renderQuick() {
   const q = $('#quick');
-  q.innerHTML = ['ls /root/vault', 'df', 'free', 'date', 'du -s /root/vault', 'cat /root/vault/Welcome.md'].map(c => `<button class="chip" data-c="${esc(c)}">${esc(c)}</button>`).join('');
+  q.innerHTML = ['ls /vault', 'df', 'free', 'date', 'du -s /vault', 'cat /vault/Welcome.md'].map(c => `<button class="chip" data-c="${esc(c)}">${esc(c)}</button>`).join('');
   $$('[data-c]', q).forEach(b => b.onclick = () => runCmd(b.dataset.c));
 }
 async function runCmd(cmd) {
@@ -982,7 +983,7 @@ const Demo = (() => {
     if (p === '/api/system/config') return { hostname: 'jade', wifi: { ssid: '', password: '' }, cortex: { url: 'https://api.groq.com/openai/v1/chat/completions', model: 'llama-3.3-70b-versatile', key: '', max_tokens: 600, context_tokens: 6000, daily_tokens: 200000, temperature: 0.4 }, agent: { max_steps: 5, context_hits: 4, persona: '' }, shell: { allow: ['ls', 'cat', 'df', 'free', 'date'] } };
     if (p === '/api/system/logs') return { lines: ['demo mode: nothing is running on a device'] };
     if (p === '/api/system/shell') return { status: 0, output: body.cmd.startsWith('ls') ? Object.keys(notes).join('\n') : 'demo: ' + body.cmd };
-    if (p === '/api/vault/tree') return { root: '/root/vault', tree: tree() };
+    if (p === '/api/vault/tree') return { root: '/vault', tree: tree() };
     if (p === '/api/vault/note' && method === 'GET') { const path = q('path'); if (!(path in notes)) throw Object.assign(new Error('no such note: ' + path), { status: 404 }); return { path, size: notes[path].length, mtime: 0, dir: false, text: notes[path], outline: outline(path), backlinks: [] }; }
     if (p === '/api/vault/note' && method === 'PUT') { notes[body.path] = body.text; return { path: body.path, size: body.text.length }; }
     if (p === '/api/vault/note' && method === 'DELETE') { delete notes[q('path')]; return {}; }
@@ -1009,7 +1010,7 @@ const Demo = (() => {
 })();
 
 /* ---------------- start ---------------- */
-(function start() {
+(async function start() {
   const params = new URLSearchParams(location.hash.slice(1) || location.search.slice(1));
   if (params.get('device')) { Dev.url = params.get('device').replace(/\/+$/, ''); store.set('url', Dev.url); }
   if (params.get('token')) { Dev.token = params.get('token'); store.set('token', Dev.token); history.replaceState(null, '', location.pathname); }
@@ -1018,6 +1019,14 @@ const Demo = (() => {
   showTab(narrow() ? 'chat' : store.get('tab', 'vault'));
   examples();
   initAvatar();
+  // served by the Jade itself (http://jade.local/)? then the device is this very origin
+  if (/^https?:$/.test(location.protocol) && location.hostname !== 'localhost' || params.get('here')) {
+    try {
+      const r = await fetch(location.origin + '/api/ping', { cache: 'no-store' });
+      const j = r.ok ? await r.json() : null;
+      if (j && j.name === 'JadeOS') { Dev.url = location.origin; Dev.here = true; store.set('url', Dev.url); }
+    } catch {}
+  }
   if (Dev.url && Dev.token) connect(false); else openConnect('');
 })();
 </script>

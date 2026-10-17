@@ -27,15 +27,6 @@ async def up():
         pass
     info["hostname"] = cfg["hostname"] + ".local"
 
-    if hasattr(network, "PHY_OPENETH"):   # QEMU build
-        lan = network.LAN(phy_type=network.PHY_OPENETH, phy_addr=1)
-        lan.active(True)
-        if await _wait(lambda: lan.ifconfig()[0] != "0.0.0.0", 20):
-            info.update(mode="ethernet", ip=lan.ifconfig()[0])
-            log("net: ethernet", info["ip"])
-            return info
-        log("net: ethernet got no address")
-
     w = cfg["wifi"]
     if w["ssid"]:
         sta = network.WLAN(network.WLAN.IF_STA)

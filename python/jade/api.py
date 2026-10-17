@@ -3,7 +3,7 @@
 # and every /api route except /api/ping needs the token: "Authorization: Bearer <token>".
 import asyncio, json
 from microdot import Microdot, Request, Response
-from jade import config, vault, tools, sysinfo
+from jade import config, vault, tools, sysinfo, fs
 from jade.agent import agent
 from jade.log import log, recent
 
@@ -167,13 +167,13 @@ def logs(req):
 
 
 @app.post("/api/system/shell")
-def shell(req):
-    import jadecore
+async def shell(req):
+    from jade import shell as jsh
     cmd = body(req).get("cmd", "")
     ok, why = tools.shell_allowed(cmd)
     if not ok:
         return err(why, 403)
-    st, out = jadecore.shell(cmd)
+    st, out = await jsh.run(cmd, jsh.Shell(allow=config.load()["shell"]["allow"]))
     log("api: shell", cmd, "->", st)
     return {"cmd": cmd, "status": st, "output": out}
 
@@ -233,12 +233,12 @@ def move(req):
 
 
 @app.get("/api/vault/search")
-def search(req):
+async def search(req):
     q = req.args.get("q", "")
     if not q.strip():
         return err("need q")
     k = min(max(int(req.args.get("k", 8)), 1), 50)
-    return {"query": q, "hits": vault.search(q, k)}
+    return {"query": q, "hits": await vault.asearch(q, k)}
 
 
 @app.get("/api/vault/outline")
@@ -322,6 +322,29 @@ async def run_tool(req):
     b = body(req)
     ok, out = await tools.run(b.get("name", ""), b.get("args") or {})
     return {"ok": ok, "output": out}
+
+
+# ---------------------------------------------------------------- the Deck (client page), from flash
+# /www/index.html.gz (or plain /www/index.html) is served at / ; it is public, the API is what needs the token.
+def _deck(req):
+    gz = fs.real("/www/index.html.gz")
+    if fs.isfile("/www/index.html.gz"):
+        return Response.send_file(gz, compressed=True, content_type="text/html", max_age=3600)
+    if fs.isfile("/www/index.html"):
+        return Response.send_file(fs.real("/www/index.html"), content_type="text/html", max_age=3600)
+    return Response("<h1>JadeOS</h1><p>No Deck on this device yet. Open the Deck from GitHub Pages and point it here, "
+                    "or copy <code>index.html.gz</code> to <code>/www</code>.</p>", 404,
+                    {"Content-Type": "text/html"})
+
+
+@app.get("/")
+def deck_root(req):
+    return _deck(req)
+
+
+@app.get("/deck")
+def deck_alias(req):
+    return _deck(req)
 
 
 async def serve(port=None):
