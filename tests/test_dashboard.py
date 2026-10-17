@@ -49,8 +49,9 @@ def main():
     data = tempfile.mkdtemp(prefix="jade-dash-")
     procs = [subprocess.Popen([sys.executable, os.path.join(ROOT, "tools/fake_llm.py"), str(llm_port)], stdout=subprocess.DEVNULL)]
     log = open(os.path.join(data, "device.log"), "w")
-    procs.append(subprocess.Popen([test_api.MP, os.path.join(ROOT, "tests/unix/device.py"), data, str(dev_port),
-                                   "http://127.0.0.1:%d/v1/chat/completions" % llm_port], stdout=log, stderr=subprocess.STDOUT))
+    env = dict(os.environ, JADEOS_ROOT=data, MICROPYPATH=".frozen:%s/python:%s/python/lib" % (ROOT, ROOT))
+    procs.append(subprocess.Popen([test_api.MP, os.path.join(ROOT, "tests/unix/device.py"), str(dev_port),
+                                   "http://127.0.0.1:%d/v1/chat/completions" % llm_port], stdout=log, stderr=subprocess.STDOUT, env=env))
     srv = serve_docs(web_port)
     dev = "http://127.0.0.1:%d" % dev_port
     shots = a.shots
@@ -76,6 +77,18 @@ def main():
             page.on("console", lambda m: errors.append(m.text) if m.type == "error" and "fonts.g" not in m.text and "net::ERR" not in m.text and "status of 40" not in m.text else None)
             page.route("https://fonts.googleapis.com/**", lambda r: r.abort())
             page.route("https://fonts.gstatic.com/**", lambda r: r.abort())
+
+            # --- the Deck served by the device itself (gzip from flash): it finds its own device
+            import gzip
+            with open(os.path.join(data, "www", "index.html.gz"), "wb") as f:
+                f.write(gzip.compress(open(os.path.join(ROOT, "docs", "index.html"), "rb").read()))
+            own = browser.new_page(viewport={"width": 1366, "height": 860})
+            own.route("https://fonts.googleapis.com/**", lambda r: r.abort())
+            own.route("https://fonts.gstatic.com/**", lambda r: r.abort())
+            own.goto(dev + "/?here=1#token=test-token")
+            own.wait_for_function("document.querySelector('#devDot').classList.contains('ok')", timeout=30000)
+            check(own.evaluate("Dev.url") == dev and own.evaluate("Dev.here") is True, "Deck from the device talks to its own origin")
+            own.close()
 
             # --- first visit: the connect sheet
             page.goto("http://127.0.0.1:%d/" % web_port)

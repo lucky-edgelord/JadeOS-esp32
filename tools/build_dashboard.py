@@ -7,6 +7,7 @@ The avatar (PixiJS, Live2D Cubism Core, pixi-live2d-display and the jadecat mode
 web/live2d-jadecat.html and web/jade-avatar.js, the same code Jade Vault uses. --no-avatar leaves it
 out (a small static face is shown instead) for a light build.
 """
+import gzip
 import os
 import sys
 
@@ -25,9 +26,12 @@ def build(avatar=True, out=os.path.join(ROOT, "docs", "index.html")):
     os.makedirs(os.path.dirname(out), exist_ok=True)
     with open(out, "w", encoding="utf-8") as f:
         f.write(html)
+    # the device serves this gzipped from its flash (/www/index.html.gz)
+    with open(out + ".gz", "wb") as f:
+        f.write(gzip.compress(html.encode(), 9, mtime=0))
     return out, len(html.encode())
 
 
 if __name__ == "__main__":
     out, size = build("--no-avatar" not in sys.argv)
-    print("wrote %s (%.1f KB)" % (os.path.relpath(out, ROOT), size / 1024))
+    print("wrote %s (%.1f KB, %.1f KB gzipped)" % (os.path.relpath(out, ROOT), size / 1024, os.path.getsize(out + ".gz") / 1024))

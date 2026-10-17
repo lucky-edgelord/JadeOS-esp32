@@ -151,7 +151,7 @@ def remember(fact):
     return "remembered"
 
 
-@tool("run_shell", "Run one allowed BreezyBox shell command on the device (ls, cat, df, free, date, ...).",
+@tool("run_shell", "Run one allowed JadeOS shell command on the device (ls, cat, df, free, date, ...).",
       {"command": {"type": "string"}}, ["command"])
 async def run_shell(command):
     ok, why = shell_allowed(command)

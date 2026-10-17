@@ -1,5 +1,5 @@
-# Networking: Wi-Fi station from the config, a setup access point when there is none, or the
-# emulated Ethernet card when running in QEMU. The device answers as <hostname>.local (mDNS).
+# Networking: Wi-Fi station from the config, or a setup access point when there is none.
+# The device answers as <hostname>.local (mDNS).
 import time, asyncio
 from jade import config, sysinfo
 from jade.log import log

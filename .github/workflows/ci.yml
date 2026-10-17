@@ -1,0 +1,37 @@
+name: ci
+
+# Tests JadeOS on the stock MicroPython unix port (no custom firmware) and publishes the Deck to GitHub Pages.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  MICROPYTHON_VERSION: v1.29.0
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Stock MicroPython (unix port)
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq libffi-dev pkg-config
+          git clone --depth 1 -b $MICROPYTHON_VERSION https://github.com/micropython/micropython ../micropython
+          make -C ../micropython/mpy-cross -j4
+          make -C ../micropython/ports/unix submodules
+          make -C ../micropython/ports/unix -j4
+      - name: Tests
+        run: |
+          pip install playwright==1.48.0 && python -m playwright install --with-deps chromium
+          MICROPYTHON=$PWD/../micropython/ports/unix/build-standard/micropython tests/run_all.sh 2>&1 | tee tests.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tests
+          path: tests.log
